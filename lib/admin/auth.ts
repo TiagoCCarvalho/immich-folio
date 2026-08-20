@@ -7,10 +7,14 @@ import crypto from 'crypto';
 import { getInstallCredentials } from '../install';
 import { resolveAuthSecret } from '../secret';
 import { isScryptHash, verifyScrypt } from '../password';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { env } from '../env';
 
 const COOKIE_NAME = 'folio_admin_session';
-const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Configurable for home-LAN deployments where re-logging in daily is friction;
+// see ADMIN_SESSION_HOURS in lib/env.ts. Default unchanged: 24 hours.
+const SESSION_DURATION_MS =
+  (Number.isFinite(env.ADMIN_SESSION_HOURS) ? env.ADMIN_SESSION_HOURS : 24) * 60 * 60 * 1000;
 
 /**
  * Longest password attempt the login endpoint will look at.
@@ -137,12 +141,30 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
   return crypto.timingSafeEqual(attemptHash, expectedHash);
 }
 
-/** Check if the current request has a valid admin session. */
+/**
+ * Headless automation auth: a static bearer token in the `x-admin-token`
+ * header, enabled only when ADMIN_API_TOKEN is configured. Grants the same
+ * power as an admin session — intended for trusted scripts (e.g. publishing
+ * new albums into gallery.yaml) that cannot hold a browser cookie.
+ */
+async function hasValidApiToken(): Promise<boolean> {
+  const configured = env.ADMIN_API_TOKEN;
+  if (!configured) return false;
+  const headerStore = await headers();
+  const presented = headerStore.get('x-admin-token');
+  if (!presented) return false;
+  const a = Buffer.from(presented, 'utf8');
+  const b = Buffer.from(configured, 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+/** Check if the current request has a valid admin session (cookie or API token). */
 export async function isAdminAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return false;
-  return verifyAdminToken(token);
+  if (token && verifyAdminToken(token)) return true;
+  return hasValidApiToken();
 }
 
 /** Check if admin panel is enabled (password is set). */
