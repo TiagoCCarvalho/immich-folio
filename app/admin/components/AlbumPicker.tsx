@@ -58,7 +58,7 @@ export default function AlbumPicker({ albums, onSelect, onClose, usedAlbumIds }:
         <div className="picker-list">
           {filtered.length === 0 && (
             <p className="empty-hint">
-              No albums found. Make sure you have shared albums in Immich.
+              No albums found. Check the Immich connection on the admin status page.
             </p>
           )}
           {filtered.map((album) => {

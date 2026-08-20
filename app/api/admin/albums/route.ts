@@ -10,9 +10,18 @@ interface ImmichAlbumSummary {
   assetCount: number;
   createdAt: string;
   updatedAt: string;
+  shared: boolean;
 }
 
-/** GET: List ALL shared Immich albums (not just allowlisted ones). */
+/**
+ * GET: List ALL Immich albums (not just allowlisted ones).
+ *
+ * Deliberately not filtered to ?shared=true: this route is admin-only, and the
+ * admin curating the portfolio owns every album anyway — requiring a share
+ * link in Immich first was an extra ritual with no security benefit (the
+ * album only becomes public if it is added to gallery.yaml). The `shared`
+ * flag is still returned so the UI can display it.
+ */
 export async function GET() {
   if (!isAdminEnabled()) {
     return NextResponse.json({ error: 'Admin not enabled' }, { status: 403 });
@@ -27,7 +36,7 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch(`${config.immich.apiUrl}/albums?shared=true`, {
+    const res = await fetch(`${config.immich.apiUrl}/albums`, {
       headers: {
         'x-api-key': config.immich.apiKey,
         Accept: 'application/json',
@@ -50,6 +59,7 @@ export async function GET() {
       assetCount: album.assetCount,
       createdAt: album.createdAt,
       updatedAt: album.updatedAt,
+      shared: album.shared ?? false,
       isConfigured: configuredIds.has(album.id),
     }));
 

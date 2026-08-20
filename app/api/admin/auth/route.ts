@@ -9,6 +9,7 @@ import {
   MAX_PASSWORD_LENGTH,
 } from '@/lib/admin/auth';
 import { checkRateLimit, getClientIp, retryAfterSeconds } from '@/lib/rate-limit';
+import { cookieSecure } from '@/lib/env';
 
 /** Admin login attempts per minute per IP — the highest-value credential in the app. */
 const ADMIN_AUTH_RPM = 5;
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   response.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieSecure(),
     sameSite: 'strict',
     path: '/',
     maxAge: SESSION_DURATION_MS / 1000,
@@ -77,7 +78,7 @@ export async function DELETE() {
   const response = NextResponse.json({ success: true });
   response.cookies.set(COOKIE_NAME, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieSecure(),
     sameSite: 'strict',
     path: '/',
     maxAge: 0,
