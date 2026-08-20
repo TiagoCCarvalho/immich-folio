@@ -19,6 +19,8 @@ export interface Env {
   ADMIN_PASSWORD?: string;
   INSTALL_CONTENT_DIR?: string;
   ALLOW_INSECURE_COOKIES: boolean;
+  ADMIN_API_TOKEN?: string;
+  ADMIN_SESSION_HOURS: number;
 }
 
 function parseEnv(): Env {
@@ -118,6 +120,22 @@ function parseEnv(): Env {
     // "lost" on every navigation). Set ALLOW_INSECURE_COOKIES=true ONLY for
     // trusted-LAN HTTP deployments; keep it unset when serving over HTTPS.
     ALLOW_INSECURE_COOKIES: process.env.ALLOW_INSECURE_COOKIES === 'true',
+    // Optional bearer token for headless automation against /api/admin/*
+    // (e.g. a script that publishes new albums into gallery.yaml). Sent as the
+    // `x-admin-token` request header. Grants the same power as the admin
+    // password — treat it as a secret. Unset disables header auth entirely.
+    ADMIN_API_TOKEN: process.env.ADMIN_API_TOKEN || undefined,
+    // Admin session lifetime in hours. Default 24; a home-LAN deployment may
+    // prefer e.g. 720 (30 days). Clamped to [1, 8760].
+    ADMIN_SESSION_HOURS: Math.min(
+      8760,
+      Math.max(
+        1,
+        process.env.ADMIN_SESSION_HOURS && !isNaN(parseInt(process.env.ADMIN_SESSION_HOURS, 10))
+          ? parseInt(process.env.ADMIN_SESSION_HOURS, 10)
+          : 24,
+      ),
+    ),
   };
 }
 
