@@ -18,6 +18,7 @@ export interface Env {
   WEBHOOK_SECRET?: string;
   ADMIN_PASSWORD?: string;
   INSTALL_CONTENT_DIR?: string;
+  ALLOW_INSECURE_COOKIES: boolean;
 }
 
 function parseEnv(): Env {
@@ -109,8 +110,25 @@ function parseEnv(): Env {
     WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || undefined,
     ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || undefined,
     INSTALL_CONTENT_DIR: process.env.INSTALL_CONTENT_DIR || undefined,
+    // Opt-out for the Secure cookie attribute. Production builds mark session
+    // cookies Secure, which browsers silently DROP over plain http:// (except
+    // localhost). On a LAN-only deployment reached via http://<nas-ip>:<port>
+    // that makes admin login appear to work while every subsequent /api/admin
+    // request fails with 401 (empty album picker, empty page builder, session
+    // "lost" on every navigation). Set ALLOW_INSECURE_COOKIES=true ONLY for
+    // trusted-LAN HTTP deployments; keep it unset when serving over HTTPS.
+    ALLOW_INSECURE_COOKIES: process.env.ALLOW_INSECURE_COOKIES === 'true',
   };
 }
 
 /** Validated, typed environment variables. */
 export const env = parseEnv();
+
+/**
+ * Whether session/auth cookies should carry the Secure attribute.
+ * True in production unless the operator explicitly opted out for a
+ * trusted-LAN HTTP deployment via ALLOW_INSECURE_COOKIES=true.
+ */
+export function cookieSecure(): boolean {
+  return process.env.NODE_ENV === 'production' && !env.ALLOW_INSECURE_COOKIES;
+}
