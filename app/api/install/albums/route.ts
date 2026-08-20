@@ -13,7 +13,7 @@ interface AlbumSummary {
 }
 
 /**
- * POST: list shared Immich albums for the wizard's picker, using the
+ * POST: list Immich albums for the wizard's picker, using the
  * credentials the user just typed. The configured Immich client cannot be used
  * here — it reads getConfig(), which is still in setup mode.
  */
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const res = await fetch(`${apiBase}/albums?shared=true`, {
+    const res = await fetch(`${apiBase}/albums`, {
       headers: {
         'x-api-key': apiKey,
         Accept: 'application/json',

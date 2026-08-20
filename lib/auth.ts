@@ -9,6 +9,7 @@
 import crypto from 'crypto';
 import { getConfig, SubpageConfig } from './config';
 import { verifyScrypt, generateScryptHash, isScryptHash } from './password';
+import { cookieSecure } from './env';
 
 const TOKEN_EXPIRY_HOURS = 24;
 
@@ -139,7 +140,7 @@ export async function authenticate(
 
   const maxAge = TOKEN_EXPIRY_HOURS * 60 * 60;
   const token = authToken(key, storedPassword, Date.now() + maxAge * 1000);
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  const secure = cookieSecure() ? '; Secure' : '';
 
   return `${cookieName(key, type)}=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Strict${secure}`;
 }
