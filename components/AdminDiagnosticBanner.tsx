@@ -73,9 +73,10 @@ export function AdminDiagnosticBanner({
           }}
         >
           <li>
-            <strong>Album Shared Status in Immich:</strong> Ensure the album in Immich is marked as{' '}
-            <strong>Shared (Geteilt)</strong>. Unshared albums are excluded by Immich Folio for
-            security.
+            <strong>Admin session over HTTP:</strong> If you access Folio via plain{' '}
+            <code>http://</code> (LAN IP), the browser drops the Secure session cookie and every
+            admin request fails silently. Set <code>ALLOW_INSECURE_COOKIES=true</code> or serve
+            over HTTPS.
           </li>
           <li>
             <strong>Cache Lag:</strong> If you just added the album or changed permissions, click{' '}
