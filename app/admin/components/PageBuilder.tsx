@@ -399,6 +399,7 @@ export default function PageBuilder() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [expandedSubpage, setExpandedSubpage] = useState<number | null>(null);
   const [drawerMode, setDrawerMode] = useState<'edit' | 'preview'>('edit');
   const [pickerTarget, setPickerTarget] = useState<{
@@ -471,6 +472,14 @@ export default function PageBuilder() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [expandedSubpage, editingAlbumAddress, pickerTarget, heroPickerTarget, orderEditorTarget]);
 
+  // ── Fresh album list whenever the picker opens ───────────────
+  // The list is otherwise fetched once at mount, so an album created in
+  // Immich after this page loaded would be invisible until a full reload.
+  useEffect(() => {
+    if (pickerTarget) void refreshAlbums();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickerTarget]);
+
   // ── Unsaved changes guard ────────────────────────────────────
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -483,25 +492,56 @@ export default function PageBuilder() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [dirty]);
 
+  /**
+   * Human-readable failure line for a load error. Silently swallowing these
+   * used to render an EMPTY page builder and album picker — indistinguishable
+   * from "no albums exist" — while the real cause (e.g. a 401 because the
+   * Secure session cookie was dropped over plain HTTP) never surfaced.
+   */
+  function describeLoadFailure(what: string, res: Response): string {
+    const hint =
+      res.status === 401
+        ? ' — session invalid or expired. Over plain http:// the browser drops the Secure session cookie; see ALLOW_INSECURE_COOKIES.'
+        : res.status === 503
+          ? ' — Immich is not configured yet.'
+          : res.status === 502
+            ? ' — Immich could not be reached.'
+            : '';
+    return `Failed to load ${what} (HTTP ${res.status})${hint}`;
+  }
+
+  /** Fetch the live album list. Used at mount and again whenever the picker opens. */
+  async function refreshAlbums(): Promise<void> {
+    try {
+      const albumsRes = await fetch('/api/admin/albums');
+      if (albumsRes.ok) {
+        const { albums } = await albumsRes.json();
+        setImmichAlbums(albums);
+        setLoadError((prev) => (prev && prev.includes('albums') ? '' : prev));
+      } else {
+        setLoadError(describeLoadFailure('albums', albumsRes));
+      }
+    } catch (err) {
+      console.error('Failed to load albums:', err);
+      setLoadError('Failed to load albums — network error.');
+    }
+  }
+
   async function loadData() {
     setLoading(true);
+    setLoadError('');
     try {
-      const [galleryRes, albumsRes] = await Promise.all([
-        fetch('/api/admin/gallery'),
-        fetch('/api/admin/albums'),
-      ]);
+      const [galleryRes] = await Promise.all([fetch('/api/admin/gallery'), refreshAlbums()]);
 
       if (galleryRes.ok) {
         const { gallery: raw } = await galleryRes.json();
         setGallery(parseGalleryYaml(raw));
-      }
-
-      if (albumsRes.ok) {
-        const { albums } = await albumsRes.json();
-        setImmichAlbums(albums);
+      } else {
+        setLoadError(describeLoadFailure('gallery.yaml', galleryRes));
       }
     } catch (err) {
       console.error('Failed to load admin data:', err);
+      setLoadError('Failed to load admin data — network error.');
     } finally {
       setLoading(false);
     }
@@ -959,6 +999,30 @@ export default function PageBuilder() {
         label="Save Changes"
         showPreview
       />
+
+      {/* Load error banner — a silent failure here looks exactly like an empty gallery */}
+      {loadError && (
+        <div
+          role="alert"
+          style={{
+            margin: '0 0 16px 0',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            background: 'rgba(255, 69, 58, 0.12)',
+            border: '1px solid rgba(255, 69, 58, 0.4)',
+            color: '#ff6961',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <span style={{ flex: 1 }}>{loadError}</span>
+          <button className="admin-btn admin-btn-sm" onClick={() => loadData()}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="builder-search-container">
